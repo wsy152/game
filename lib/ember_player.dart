@@ -1,9 +1,12 @@
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
 import 'package:flutter/services.dart';
+import 'package:game_firt/actors/water_enemy.dart';
 import 'package:game_firt/amber_quest.dart';
 import 'package:game_firt/objects/ground_block.dart';
 import 'package:game_firt/objects/platform_block.dart';
+import 'package:game_firt/objects/star.dart';
 
 class EmberPlayer extends SpriteAnimationComponent
     with KeyboardHandler, CollisionCallbacks, HasGameRef<EmberQuestGame> {
@@ -21,6 +24,8 @@ class EmberPlayer extends SpriteAnimationComponent
   final double terminalVelocity = 150;
 
   bool hasJumped = false;
+
+  bool hitByEnemy = false;
 
   @override
   void onLoad() {
@@ -74,6 +79,19 @@ class EmberPlayer extends SpriteAnimationComponent
 // crashing through the ground or a platform.
     velocity.y = velocity.y.clamp(-jumpSpeed, terminalVelocity);
 
+    game.objectSpeed = 0;
+// Prevent ember from going backwards at screen edge.
+    if (position.x - 36 <= 0 && horizontalDirection < 0) {
+      velocity.x = 0;
+    }
+// Prevent ember from going beyond half screen.
+    if (position.x + 64 >= game.size.x / 2 && horizontalDirection > 0) {
+      velocity.x = 0;
+      game.objectSpeed = -moveSpeed;
+    }
+
+    position += velocity * dt;
+
     super.update(dt);
   }
 
@@ -99,9 +117,34 @@ class EmberPlayer extends SpriteAnimationComponent
         // Resolve collision by moving ember along
         // collision normal by separation distance.
         position += collisionNormal.scaled(separationDistance);
+
+        if (other is Star) {
+          other.removeFromParent();
+        }
+
+        if (other is WaterEnemy) {
+          hit();
+        }
       }
     }
 
     super.onCollision(intersectionPoints, other);
+  }
+
+  void hit() {
+    if (!hitByEnemy) {
+      hitByEnemy = true;
+    }
+    add(
+      OpacityEffect.fadeOut(
+        EffectController(
+          alternate: true,
+          duration: 0.1,
+          repeatCount: 6,
+        ),
+      )..onComplete = () {
+          hitByEnemy = false;
+        },
+    );
   }
 }
